@@ -3,11 +3,13 @@
 
 #include "socketutil.c"
 #include "socketutil.h"
+#include <stddef.h>
+#include <unistd.h>
 
 int main() {
 
-  char *ip = "172.217.174.78";
-  int port = 80;
+  char *ip = "127.0.0.1";
+  int port = 2000;
   int socketFD = createSockTcpIPv4();
   struct sockaddr_in *address = createSockAddr(ip, port);
   // here we will make a connection of the client side socket
@@ -19,9 +21,23 @@ int main() {
     printf("connection was successful!!! \n");
   }
 
-  char *message = "GET / HTTP/1.1\r\nHost: google.com\r\n\r\n";
   char buffer[1024];
-  send(socketFD, message, strlen(message), 0);
-  recv(socketFD, buffer, 1024, 0);
-  printf("The response is \n%s", buffer);
+  while (1) {
+    char *line = NULL;
+    size_t linelen = 0;
+    size_t charCount = getline(&line, &linelen, stdin);
+    line[charCount] = '\0';
+
+    if (charCount > 0) {
+      if (strcmp(line, "exit\n") == 0) {
+        break;
+      } else {
+        size_t amountSent = send(socketFD, line, charCount, 0);
+      }
+    }
+  }
+
+  close(socketFD);
+  printf("The channel has been closed :(\n");
+  // http get request => "GET / HTTP/1.1\r\nHost: google.com\r\n\r\n";
 }

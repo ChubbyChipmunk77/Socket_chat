@@ -38,6 +38,10 @@ struct sockaddr_in *createSockAddr(char *ip, int port) {
   // the network byte order. network expects a big endian byte order
   // but some devices store it in little endian.
   address->sin_port = htons(port); // for http request
-  inet_pton(AF_INET, ip, (void *)&address->sin_addr);
+  if (strlen(ip) == 0) {
+    address->sin_addr.s_addr = INADDR_ANY;
+  } else {
+    inet_pton(AF_INET, ip, (void *)&address->sin_addr);
+  }
   return address;
 }
