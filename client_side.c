@@ -3,9 +3,13 @@
 
 #include "socketutil.c"
 #include "socketutil.h"
+#include <bits/pthreadtypes.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <unistd.h>
 
+void recvAndPrint(int clientSocket);
+void recvSeparateThread(int clientSocket);
 int main() {
 
   char *ip = "127.0.0.1";
@@ -21,6 +25,7 @@ int main() {
     printf("connection was successful!!! \n");
   }
 
+  recvSeparateThread(socketFD);
   char buffer[1024];
   while (1) {
     char *line = NULL;
@@ -40,4 +45,44 @@ int main() {
   close(socketFD);
   printf("The channel has been closed :(\n");
   // http get request => "GET / HTTP/1.1\r\nHost: google.com\r\n\r\n";
+}
+
+void *recvAndPrint_wrapper(void *arg) {
+  int clientSocket = *(int *)arg;
+  free(arg);
+  recvAndPrint(clientSocket);
+  return NULL;
+}
+
+void recvSeparateThread(int clientSocket) {
+  pthread_t tid;
+  int *sockPtr = malloc(sizeof(int)); // must be heap-allocated
+  *sockPtr = clientSocket;
+
+  if (pthread_create(&tid, NULL, recvAndPrint_wrapper, sockPtr) != 0) {
+    perror("pthread_create");
+    free(sockPtr);
+    return;
+  }
+
+  pthread_detach(tid); // <-- key: no join needed
+}
+
+void recvAndPrint(int clientSocket) {
+
+  char buffer[1024];
+  while (1) {
+
+    // As for now accept is not here as it is a blocking code !!!
+    // currently we will only deal with single connections.
+
+    int bytesRead = recv(clientSocket, buffer, 1024, 0);
+    if (bytesRead > 0) {
+      buffer[bytesRead] = '\0'; // null terminate at the end of the new data
+      printf("Received message -> %s\n", buffer);
+    } else if (bytesRead == 0) {
+      break;
+    }
+  }
+  close(clientSocket);
 }

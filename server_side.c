@@ -18,12 +18,16 @@ struct clientConnectMeta {
   int err;
 };
 
+struct clientConnectMeta clientSocketList[10];
+int socketInd = 0;
+
 struct clientConnectMeta *createClientConnectMeta(int socketFD);
 void rwFromClientSock(int clientSocket);
 void acceptConnectionRW(int serverSocketFD);
 pthread_t acceptIncomingConnections(int serverSocketFD);
 void *acceptConnectionRW_wrapper(void *arg);
 void rwIncomingDataSeparateThread(struct clientConnectMeta *clientinfo);
+void broadcastClientMessage(char *buffer, int clientSocket);
 
 int main() {
   serverSocketFD = createSockTcpIPv4();
@@ -86,6 +90,7 @@ void acceptConnectionRW(int serverSocketFD) {
     if (clientSocketinfo->connectionEstablished) {
       printf("A new connection arrives!\n");
     }
+    clientSocketList[socketInd++] = *clientSocketinfo;
     rwIncomingDataSeparateThread(clientSocketinfo);
   }
 }
@@ -104,6 +109,17 @@ void rwIncomingDataSeparateThread(struct clientConnectMeta *clientinfo) {
   pthread_create(&pid, NULL, rwFromClientSock_wrapper, arg);
 }
 
+void broadcastClientMessage(char *buffer, int clientSocket) {
+  for (int i = 0; i < socketInd; i++) {
+    if (clientSocketList[i].clientSocket != clientSocket) {
+      send(clientSocketList[i].clientSocket, buffer, strlen(buffer), 0);
+    }
+  }
+}
+
+// reads from the client and shows the message,
+// also relays the message to other clients
+// this is a blicked code as it does recv.
 void rwFromClientSock(int clientSocket) {
 
   char buffer[1024];
@@ -116,6 +132,8 @@ void rwFromClientSock(int clientSocket) {
     if (bytesRead > 0) {
       buffer[bytesRead] = '\0'; // null terminate at the end of the new data
       printf("Received message -> %s\n", buffer);
+      broadcastClientMessage(buffer, clientSocket);
+      // broadcastClientSeparateThread();
     } else if (bytesRead == 0) {
       break;
     }
